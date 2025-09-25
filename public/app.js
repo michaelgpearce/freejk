@@ -76,7 +76,7 @@ class FreeJKApp {
             }
 
             const csvText = await response.text();
-            this.campaigns = this.parseCSV(csvText, ['name', 'description_html']);
+            this.campaigns = this.parseCSV(csvText, ['name', 'description_html', 'contact_template']);
 
             if (this.campaigns.length === 0) {
                 throw new Error('No data found in the sheet');
@@ -230,6 +230,88 @@ class FreeJKApp {
         }
 
         this.cardsContainer.innerHTML = this.filteredData.map(item => this.createCard(item)).join('');
+        this.setupContactTemplateEventListeners();
+    }
+
+    setupContactTemplateEventListeners() {
+        document.querySelectorAll('.contact-template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const itemData = JSON.parse(btn.getAttribute('data-item'));
+                this.showContactTemplateModal(itemData);
+            });
+        });
+    }
+
+    showContactTemplateModal(item) {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('contact-template-modal');
+        if (!modal) {
+            modal = this.createContactTemplateModal();
+            document.body.appendChild(modal);
+        }
+
+        // Render the template with the item data
+        const renderedTemplate = this.renderTemplate(this.campaign.contact_template, item);
+
+        // Update modal content
+        const modalBody = modal.querySelector('.modal-body');
+        const copyBtn = modal.querySelector('.modal-copy-btn');
+
+        modalBody.textContent = renderedTemplate;
+        copyBtn.onclick = () => this.copyToClipboard(renderedTemplate);
+
+        // Show modal
+        modal.style.display = 'flex';
+    }
+
+    renderTemplate(template, data) {
+        return template.replace(/{(.*?)}/g, (match, p1) => {
+            const key = p1.trim();
+            return data[key] || '';
+        });
+    }
+
+    copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            console.log('Template copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            alert('Failed to copy text. Please try manually.');
+        });
+    }
+
+    createContactTemplateModal() {
+        const modal = document.createElement('div');
+        modal.id = 'contact-template-modal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Contact Template</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body"></div>
+                <div class="modal-footer">
+                    <button class="modal-copy-btn">📋 Copy to Clipboard</button>
+                    <button class="modal-close-btn">Close</button>
+                </div>
+            </div>
+        `;
+
+        // Set up close functionality
+        modal.querySelector('.modal-close').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        modal.querySelector('.modal-close-btn').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        return modal;
     }
 
     createCard(item) {
@@ -297,6 +379,14 @@ class FreeJKApp {
                                 </a>
                             </div>
                         ` : ''}
+
+                        ${this.campaign && this.campaign.contact_template ? `
+                            <div class="contact-template-section">
+                                <button class="contact-template-btn" data-company-name="${this.escapeHtml(item.company_name)}" data-item='${JSON.stringify(item).replace(/'/g, "&#39;")}'>
+                                    💬 Contact Template
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
 
@@ -338,6 +428,31 @@ class FreeJKApp {
 }
 
 // Demo data fallback for when Google Sheets is not configured
+const DEMO_CAMPAIGNS = [
+    {
+        name: "Free Jimmy Kimmel",
+        description_html: "A campaign to support organizations that provide resources and aid.",
+        contact_template: `Subject: Partnership Inquiry - {company_name}
+
+Dear {company_name} Team,
+
+I hope this message finds you well. I'm reaching out regarding a potential partnership opportunity with your organization.
+
+We are particularly interested in collaborating with {company_name} to support community initiatives in the {market} area. Your work in this field aligns perfectly with our mission.
+
+I would love to schedule a brief conversation to discuss how we might work together. Would you be available for a 15-20 minute call in the coming week?
+
+You can reach me at the contact information below, or feel free to reach out directly to {contact_email} or {contact_phone}.
+
+Looking forward to connecting with you soon.
+
+Best regards,
+[Your Name]
+[Your Title]
+[Your Organization]`
+    }
+];
+
 const DEMO_DATA = [
     {
         company_name: "Community Resource Center",
@@ -392,6 +507,9 @@ class FreeJKAppWithDemo extends FreeJKApp {
 
                 // Simulate network delay
                 await new Promise(resolve => setTimeout(resolve, 1000));
+
+                this.campaigns = DEMO_CAMPAIGNS;
+                this.campaign = this.campaigns.find(c => c.name === this.campaignName);
 
                 this.data = DEMO_DATA;
                 this.processData();
