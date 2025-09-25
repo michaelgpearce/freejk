@@ -45,7 +45,7 @@ class FreeJKApp {
             }
 
             const csvText = await response.text();
-            this.data = this.parseCSV(csvText, ['campaign', 'name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
+            this.data = this.parseCSV(csvText, ['campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
 
             if (this.data.length === 0) {
                 throw new Error('No data found in the sheet');
@@ -180,8 +180,8 @@ class FreeJKApp {
             }
         });
 
-        // Sort data by name
-        this.data.sort((a, b) => a.name.localeCompare(b.name));
+        // Sort data by company name
+        this.data.sort((a, b) => a.company_name.localeCompare(b.company_name));
     }
 
     populateMarketFilter() {
@@ -260,8 +260,8 @@ class FreeJKApp {
                 <div class="card-header">
                     <h3 class="card-title">
                         ${item.url ?
-                            `<a href="${this.escapeHtml(formatUrl(item.url))}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(item.name)}</a>` :
-                            this.escapeHtml(item.name)
+                            `<a href="${this.escapeHtml(formatUrl(item.url))}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(item.company_name)}</a>` :
+                            this.escapeHtml(item.company_name)
                         }
                     </h3>
                     ${item.market ? `<span class="card-market">${this.escapeHtml(item.market)}</span>` : ''}
@@ -340,7 +340,7 @@ class FreeJKApp {
 // Demo data fallback for when Google Sheets is not configured
 const DEMO_DATA = [
     {
-        name: "Community Resource Center",
+        company_name: "Community Resource Center",
         market: "Downtown",
         url: "example.com/resource-center",
         contact_email: "info@resourcecenter.org",
@@ -350,7 +350,7 @@ const DEMO_DATA = [
         observed_source_url: "https://news.example.com/community-resource-story"
     },
     {
-        name: "Legal Aid Society",
+        company_name: "Legal Aid Society",
         market: "Midtown",
         url: "legalaid-example.org",
         contact_email: "help@legalaid.org",
@@ -360,7 +360,7 @@ const DEMO_DATA = [
         observed_source_url: "https://blog.example.com/legal-aid-coverage"
     },
     {
-        name: "Food Bank Network",
+        company_name: "Food Bank Network",
         market: "Suburbs",
         url: "foodbank-network.org",
         contact_email: "contact@foodbank.org",
@@ -370,7 +370,7 @@ const DEMO_DATA = [
         observed_source_url: ""
     },
     {
-        name: "Housing Authority",
+        company_name: "Housing Authority",
         market: "Downtown",
         url: "housing-authority.gov",
         contact_email: "housing@city.gov",
