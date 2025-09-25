@@ -45,7 +45,7 @@ class FreeJKApp {
             }
 
             const csvText = await response.text();
-            this.data = this.parseCSV(csvText, ['campaign', 'name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
+            this.data = this.parseCSV(csvText, ['campaign', 'name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on']);
 
             if (this.data.length === 0) {
                 throw new Error('No data found in the sheet');
@@ -302,10 +302,7 @@ class FreeJKApp {
 
                 ${item.observed_on ? `
                     <div class="card-footer">
-                        Observed On: ${item.observed_source_url ?
-                            `<a href="${this.escapeHtml(formatUrl(item.observed_source_url))}" target="_blank" rel="noopener noreferrer">${formatDate(item.observed_on)}</a>` :
-                            formatDate(item.observed_on)
-                        }
+                        Observed On: ${formatDate(item.observed_on)}
                     </div>
                 ` : ''}
             </div>
@@ -346,8 +343,7 @@ const DEMO_DATA = [
         contact_email: "info@resourcecenter.org",
         contact_phone: "(555) 123-4567",
         contact_url: "(555) 12url-4567",
-        observed_on: "2024-01-15",
-        observed_source_url: "https://news.example.com/community-resource-story"
+        observed_on: "2024-01-15"
     },
     {
         name: "Legal Aid Society",
@@ -356,8 +352,7 @@ const DEMO_DATA = [
         contact_email: "help@legalaid.org",
         contact_phone: "(555) 234-5678",
         contact_url: "(555) 23url-5678",
-        observed_on: "2024-01-10",
-        observed_source_url: "https://blog.example.com/legal-aid-coverage"
+        observed_on: "2024-01-10"
     },
     {
         name: "Food Bank Network",
@@ -366,8 +361,7 @@ const DEMO_DATA = [
         contact_email: "contact@foodbank.org",
         contact_phone: "(555) 345-6789",
         contact_url: "(555) 34url-6789",
-        observed_on: "2024-01-20",
-        observed_source_url: ""
+        observed_on: "2024-01-20"
     },
     {
         name: "Housing Authority",
@@ -376,8 +370,7 @@ const DEMO_DATA = [
         contact_email: "housing@city.gov",
         contact_phone: "(555) 456-7890",
         contact_url: "(555) 45url-7890",
-        observed_on: "2024-01-12",
-        observed_source_url: "https://local.example.com/housing-news"
+        observed_on: "2024-01-12"
     }
 ];
 
