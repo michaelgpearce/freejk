@@ -12,8 +12,29 @@ class FreeJKApp {
 
         this.initializeElements();
         this.bindEvents();
-        this.loadCampaigns();
-        this.loadData();
+        this.loadAllData();
+    }
+
+    async loadAllData() {
+        try {
+            this.showLoading();
+
+            // Load both campaigns and data in parallel
+            await Promise.all([
+                this.loadCampaigns(),
+                this.loadData()
+            ]);
+
+            // Now that both are loaded, render the UI
+            this.processData();
+            this.populateMarketFilter();
+            this.filterData();
+            this.hideLoading();
+
+        } catch (error) {
+            console.error('Error loading data:', error);
+            this.showError(`Failed to load data: ${error.message}`);
+        }
     }
 
     initializeElements() {
@@ -32,56 +53,31 @@ class FreeJKApp {
     }
 
     async loadData() {
-        try {
-            this.showLoading();
+        const jsonResponse = await this.fetchGoogleSpreadsheetJson('data');
+        this.data = this.parseGoogleSheetsJSON(jsonResponse, ['campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
 
-            const jsonResponse = await this.fetchGoogleSpreadsheetJson('data');
-            this.data = this.parseGoogleSheetsJSON(jsonResponse, ['campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
-
-            if (this.data.length === 0) {
-                throw new Error('No data found in the sheet');
-            }
-
-            this.processData();
-            this.populateMarketFilter();
-            this.filterData();
-            this.hideLoading();
-
-        } catch (error) {
-            console.error('Error loading data:', error);
-            this.showError(`Failed to load data: ${error.message}`);
+        if (this.data.length === 0) {
+            throw new Error('No data found in the sheet');
         }
     }
 
     async loadCampaigns() {
-        try {
-            this.showLoading();
+        const jsonResponse = await this.fetchGoogleSpreadsheetJson('campaigns');
+        this.campaigns = this.parseGoogleSheetsJSON(jsonResponse, ['name', 'description_html', 'contact_template']);
 
-            const jsonResponse = await this.fetchGoogleSpreadsheetJson('campaigns');
-            this.campaigns = this.parseGoogleSheetsJSON(jsonResponse, ['name', 'description_html', 'contact_template']);
-
-            if (this.campaigns.length === 0) {
-                throw new Error('No data found in the sheet');
-            }
-
-            this.processCampaigns();
-
-            this.campaign = this.campaigns.find(c => c.name === this.campaignName);
-            if (!this.campaign) {
-                throw new Error(`Campaign "${this.campaignName}" not found in campaigns sheet`);
-            }
-
-            document.querySelector('header h1').textContent = this.campaign.name;
-            document.querySelector('header .subtitle').innerHTML = this.campaign.description_html;
-
-            // this.populateMarketFilter();
-            // this.filterData();
-            this.hideLoading();
-
-        } catch (error) {
-            console.error('Error loading data:', error);
-            this.showError(`Failed to load data: ${error.message}`);
+        if (this.campaigns.length === 0) {
+            throw new Error('No data found in the campaigns sheet');
         }
+
+        this.processCampaigns();
+
+        this.campaign = this.campaigns.find(c => c.name === this.campaignName);
+        if (!this.campaign) {
+            throw new Error(`Campaign "${this.campaignName}" not found in campaigns sheet`);
+        }
+
+        document.querySelector('header h1').textContent = this.campaign.name;
+        document.querySelector('header .subtitle').innerHTML = this.campaign.description_html;
     }
 
     parseCSV(csvText, columnNames) {
