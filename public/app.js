@@ -35,17 +35,8 @@ class FreeJKApp {
         try {
             this.showLoading();
 
-            // Construct the Google Sheets CSV URL
-            const csvUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=data`;
-
-            const response = await fetch(csvUrl);
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
-            }
-
-            const csvText = await response.text();
-            this.data = this.parseCSV(csvText, ['campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
+            const jsonResponse = await this.fetchGoogleSpreadsheetJson('data');
+            this.data = this.parseGoogleSheetsJSON(jsonResponse, ['campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
 
             if (this.data.length === 0) {
                 throw new Error('No data found in the sheet');
@@ -66,17 +57,8 @@ class FreeJKApp {
         try {
             this.showLoading();
 
-            // Construct the Google Sheets CSV URL
-            const csvUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=campaigns`;
-
-            const response = await fetch(csvUrl);
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch campaigns: ${response.status} ${response.statusText}`);
-            }
-
-            const csvText = await response.text();
-            this.campaigns = this.parseCSV(csvText, ['name', 'description_html', 'contact_template']);
+            const jsonResponse = await this.fetchGoogleSpreadsheetJson('campaigns');
+            this.campaigns = this.parseGoogleSheetsJSON(jsonResponse, ['name', 'description_html', 'contact_template']);
 
             if (this.campaigns.length === 0) {
                 throw new Error('No data found in the sheet');
@@ -162,8 +144,136 @@ class FreeJKApp {
         return result;
     }
 
+    parseGoogleSheetsJSON(response, columnNames) {
+        try {
+            if (!response.table || !response.table.rows) {
+                throw new Error('Invalid JSON response format');
+            }
+
+            // Get column headers and types
+            const headers = response.table.cols.map(col =>
+                col.label ? col.label.toLowerCase().trim() : ''
+            );
+
+            const columnTypes = response.table.cols.map(col => col.type || 'string');
+
+            // Map column names to indices
+            const columnIndices = columnNames.reduce((acc, name) => {
+                acc[name] = headers.indexOf(name);
+                if (acc[name] === -1) {
+                    throw new Error(`Required column "${name}" not found in sheet`);
+                }
+                return acc;
+            }, {});
+
+            // Parse data rows
+            const data = [];
+            response.table.rows.forEach((row, index) => {
+                if (row.c && row.c.length > 0) {
+                    const item = columnNames.reduce((obj, col) => {
+                        const cell = row.c[columnIndices[col]];
+                        const columnType = columnTypes[columnIndices[col]];
+                        let value = '';
+
+                        if (cell && cell.v !== null && cell.v !== undefined) {
+                            // Handle different column types
+                            if (columnType === 'date') {
+                                console.log(`Date parsing - Row ${index}, Column ${col}:`, {
+                                    rawValue: cell.v,
+                                    formattedValue: cell.f,
+                                    valueType: typeof cell.v,
+                                    columnType: columnType
+                                });
+
+                                if (cell.f) {
+                                    // If there's a formatted value (f), use it for dates
+                                    value = cell.f;
+                                } else if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
+                                    // Handle Google Sheets Date() format like "Date(2024,0,15)"
+                                    const dateMatch = cell.v.match(/Date\((\d+),(\d+),(\d+)\)/);
+                                    if (dateMatch) {
+                                        const year = parseInt(dateMatch[1]);
+                                        const month = parseInt(dateMatch[2]); // Google Sheets months are 0-based
+                                        const day = parseInt(dateMatch[3]);
+                                        const date = new Date(year, month, day);
+                                        value = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+                                    } else {
+                                        value = String(cell.v);
+                                    }
+                                } else if (typeof cell.v === 'number') {
+                                    // Handle Excel/Google Sheets serial date numbers
+                                    // Google Sheets uses days since December 30, 1899
+                                    const date = new Date((cell.v - 25569) * 86400 * 1000);
+                                    value = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+                                } else {
+                                    value = String(cell.v);
+                                }
+
+                                console.log(`Date parsing result:`, value);
+                            } else {
+                                // For non-date columns, just convert to string
+                                value = String(cell.v);
+                            }
+                        }
+
+                        obj[col] = this.cleanValue(value);
+
+                        return obj;
+                    }, {});
+
+                    // Only add rows that have content in the first column
+                    if (item[columnNames[0]]) {
+                        data.push(item);
+                    }
+                }
+            });
+
+            return data;
+
+        } catch (error) {
+            console.error('Error parsing Google Sheets JSON:', error);
+            throw new Error(`Failed to parse JSON response: ${error.message}`);
+        }
+    }
+
+    async fetchGoogleSpreadsheetJson(sheetName) {
+        // Construct the Google Sheets JSON URL
+        const jsonUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${sheetName}`;
+
+        const response = await fetch(jsonUrl);
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ${sheetName}: ${response.status} ${response.statusText}`);
+        }
+
+        const jsonText = await response.text();
+
+        try {
+            // Remove the leading "/*O_o*/\ngoogle.visualization.Query.setResponse(" and trailing ");" to isolate JSON
+            const start = jsonText.indexOf('{');
+            const end = jsonText.lastIndexOf('}') + 1;
+            const jsonString = jsonText.slice(start, end);
+
+            // Parse the extracted JSON string
+            return JSON.parse(jsonString);
+        } catch (error) {
+            throw new Error(`Failed to parse JSON response from ${sheetName}: ${error.message}`);
+        }
+    }
+
     cleanValue(value) {
-        return value ? value.trim().replace(/^"|"$/g, '') : '';
+        if (!value) return '';
+
+        // For JSON, we shouldn't need to remove quotes, but we still want to trim
+        let cleaned = String(value).trim();
+
+        // Convert common newline representations back to actual newlines (just in case)
+        cleaned = cleaned
+            .replace(/\\n/g, '\n')           // Convert literal \n to actual newlines
+            .replace(/\r\n/g, '\n')         // Convert Windows line endings
+            .replace(/\r/g, '\n');          // Convert Mac line endings
+
+        return cleaned;
     }
 
     processCampaigns() {
