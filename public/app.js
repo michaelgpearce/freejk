@@ -39,6 +39,7 @@ class FreeJKApp {
 
     initializeElements() {
         this.marketFilter = document.getElementById('marketFilter');
+        this.contactedFilter = document.getElementById('contactedFilter');
         this.cardsContainer = document.getElementById('cardsContainer');
         this.loading = document.getElementById('loading');
         this.error = document.getElementById('error');
@@ -48,6 +49,9 @@ class FreeJKApp {
 
     bindEvents() {
         this.marketFilter.addEventListener('change', () => {
+            this.filterData();
+        });
+        this.contactedFilter.addEventListener('change', () => {
             this.filterData();
         });
     }
@@ -354,6 +358,7 @@ class FreeJKApp {
 
     filterData() {
         const selectedMarket = this.marketFilter.value;
+        const selectedContactStatus = this.contactedFilter.value;
 
         let filteredData;
 
@@ -363,7 +368,16 @@ class FreeJKApp {
             filteredData = [...this.data];
         }
 
+        // Filter by campaign
         filteredData = filteredData.filter(item => item.campaign === this.campaignName);
+
+        // Filter by contact status
+        if (selectedContactStatus === 'contacted') {
+            filteredData = filteredData.filter(item => this.isCompanyContacted(item.identifier));
+        } else if (selectedContactStatus === 'not-contacted') {
+            filteredData = filteredData.filter(item => !this.isCompanyContacted(item.identifier));
+        }
+        // If selectedContactStatus is empty ("Any"), no additional filtering is needed
 
         this.filteredData = filteredData;
 

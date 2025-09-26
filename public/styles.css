@@ -54,6 +54,9 @@ main {
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
 }
 
 .filter-group {
@@ -67,7 +70,8 @@ main {
     color: #555;
 }
 
-#marketFilter {
+#marketFilter,
+#contactedFilter {
     padding: 0.75rem;
     border: 2px solid #e1e5e9;
     border-radius: 8px;
@@ -76,7 +80,8 @@ main {
     transition: border-color 0.3s ease;
 }
 
-#marketFilter:focus {
+#marketFilter:focus,
+#contactedFilter:focus {
     outline: none;
     border-color: #667eea;
 }
@@ -278,6 +283,8 @@ footer {
 
     .filters {
         padding: 1rem;
+        grid-template-columns: 1fr;
+        gap: 1rem;
     }
 
     .cards-container {
