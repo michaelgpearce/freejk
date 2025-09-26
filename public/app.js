@@ -341,8 +341,33 @@ class FreeJKApp {
             }
         });
 
-        // Sort data by company name
-        this.data.sort((a, b) => a.company_name.localeCompare(b.company_name));
+        // Sort data by observed_on date (most recent first), then by company name
+        // Items with no observed_on date appear last
+        this.data.sort((a, b) => {
+            const hasDateA = a.observed_on && a.observed_on.trim() !== '';
+            const hasDateB = b.observed_on && b.observed_on.trim() !== '';
+            
+            const dateA = hasDateA ? new Date(a.observed_on) : null;
+            const dateB = hasDateB ? new Date(b.observed_on) : null;
+            
+            // If both have valid dates, sort by date (most recent first)
+            if (dateA && dateB) {
+                const dateComparison = dateB.getTime() - dateA.getTime();
+                if (dateComparison !== 0) {
+                    return dateComparison;
+                }
+            }
+            // If only A has a date, A comes first
+            else if (dateA && !dateB) {
+                return -1;
+            }
+            // If only B has a date, B comes first
+            else if (!dateA && dateB) {
+                return 1;
+            }
+            // If neither has a date, or dates are equal, sort by company name
+            return a.company_name.localeCompare(b.company_name);
+        });
     }
 
     populateMarketFilter() {
@@ -716,6 +741,19 @@ const DEMO_DATA = [
         observed_source_url: "https://example.com/disabled-test",
         identifier: "free-jimmy-kimmel-downtown-disabled-test-company",
         enabled: "false"
+    },
+    {
+        campaign: "Free Jimmy Kimmel",
+        company_name: "ABC No Date Company",
+        market: "Midtown",
+        url: "abc-nodate.example.com",
+        contact_email: "contact@abc-nodate.com",
+        contact_phone: "(555) 111-2222",
+        contact_url: "https://abc-nodate.example.com/contact",
+        observed_on: "",
+        observed_source_url: "",
+        identifier: "free-jimmy-kimmel-midtown-abc-no-date-company",
+        enabled: "true"
     }
 ];
 
