@@ -58,14 +58,19 @@ class FreeJKApp {
 
     async loadData() {
         const jsonResponse = await this.fetchGoogleSpreadsheetJson('data');
-        this.data = this.parseGoogleSheetsJSON(jsonResponse, ['identifier', 'campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
+        let data = this.parseGoogleSheetsJSON(jsonResponse, ['identifier', 'campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url', 'enabled']);
+
+        // Filter to only include enabled items
+        data = data.filter(item => item.enabled === 'true');
 
         // Generate identifiers for any items that don't have them
-        this.data.forEach(item => {
+        data.forEach(item => {
             if (!item.identifier) {
                 item.identifier = this.generateDataIdentifier(item);
             }
         });
+
+        this.data = data;
     }
 
     async loadCampaigns() {
@@ -657,7 +662,8 @@ const DEMO_DATA = [
         contact_url: "(555) 12url-4567",
         observed_on: "2024-01-15",
         observed_source_url: "https://news.example.com/community-resource-story",
-        identifier: "free-jimmy-kimmel-downtown-community-resource-center"
+        identifier: "free-jimmy-kimmel-downtown-community-resource-center",
+        enabled: "true"
     },
     {
         campaign: "Free Jimmy Kimmel",
@@ -669,7 +675,8 @@ const DEMO_DATA = [
         contact_url: "(555) 23url-5678",
         observed_on: "2024-01-10",
         observed_source_url: "https://blog.example.com/legal-aid-coverage",
-        identifier: "free-jimmy-kimmel-midtown-legal-aid-society"
+        identifier: "free-jimmy-kimmel-midtown-legal-aid-society",
+        enabled: "true"
     },
     {
         campaign: "Free Jimmy Kimmel",
@@ -681,7 +688,8 @@ const DEMO_DATA = [
         contact_url: "(555) 34url-6789",
         observed_on: "2024-01-20",
         observed_source_url: "",
-        identifier: "free-jimmy-kimmel-suburbs-food-bank-network"
+        identifier: "free-jimmy-kimmel-suburbs-food-bank-network",
+        enabled: "true"
     },
     {
         campaign: "Free Jimmy Kimmel",
@@ -693,7 +701,21 @@ const DEMO_DATA = [
         contact_url: "(555) 45url-7890",
         observed_on: "2024-01-12",
         observed_source_url: "https://local.example.com/housing-news",
-        identifier: "free-jimmy-kimmel-downtown-housing-authority"
+        identifier: "free-jimmy-kimmel-downtown-housing-authority",
+        enabled: "true"
+    },
+    {
+        campaign: "Free Jimmy Kimmel",
+        company_name: "Disabled Test Company",
+        market: "Downtown",
+        url: "disabled-company.example.com",
+        contact_email: "test@disabled.com",
+        contact_phone: "(555) 999-9999",
+        contact_url: "https://disabled-company.example.com/contact",
+        observed_on: "2024-01-01",
+        observed_source_url: "https://example.com/disabled-test",
+        identifier: "free-jimmy-kimmel-downtown-disabled-test-company",
+        enabled: "false"
     }
 ];
 
@@ -712,7 +734,17 @@ class FreeJKAppWithDemo extends FreeJKApp {
                 this.campaigns = DEMO_CAMPAIGNS;
                 this.campaign = this.campaigns.find(c => c.name === this.campaignName);
 
-                this.data = DEMO_DATA;
+                // Filter demo data to only include enabled items
+                let data = DEMO_DATA.filter(item => item.enabled === 'true');
+
+                // Generate identifiers for any items that don't have them
+                data.forEach(item => {
+                    if (!item.identifier) {
+                        item.identifier = this.generateDataIdentifier(item);
+                    }
+                });
+
+                this.data = data;
 
                 this.processData();
                 this.populateMarketFilter();
