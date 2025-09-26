@@ -287,6 +287,37 @@ class FreeJKApp {
             .replace(/^-+|-+$/g, '');     // Remove leading/trailing dashes
     }
 
+    getCompanyContactedAtMap() {
+        try {
+            const stored = localStorage.getItem('companyContactedAtMap');
+            return stored ? JSON.parse(stored) : {};
+        } catch (error) {
+            console.error('Error reading companyContactedAtMap from localStorage:', error);
+            return {};
+        }
+    }
+
+    setCompanyContacted(identifier, contactedAt = null) {
+        try {
+            const contactMap = this.getCompanyContactedAtMap();
+
+            if (contactedAt) {
+                contactMap[identifier] = contactedAt;
+            } else {
+                delete contactMap[identifier];
+            }
+
+            localStorage.setItem('companyContactedAtMap', JSON.stringify(contactMap));
+        } catch (error) {
+            console.error('Error updating companyContactedAtMap in localStorage:', error);
+        }
+    }
+
+    isCompanyContacted(identifier) {
+        const contactMap = this.getCompanyContactedAtMap();
+        return !!contactMap[identifier];
+    }
+
     processCampaigns() {
         // Sort data by name
         this.campaigns.sort((a, b) => a.name.localeCompare(b.name));
@@ -352,6 +383,7 @@ class FreeJKApp {
 
         this.cardsContainer.innerHTML = this.filteredData.map(item => this.createCard(item)).join('');
         this.setupContactTemplateEventListeners();
+        this.setupContactCheckboxEventListeners();
     }
 
     setupContactTemplateEventListeners() {
@@ -359,6 +391,22 @@ class FreeJKApp {
             btn.addEventListener('click', (e) => {
                 const itemData = JSON.parse(btn.getAttribute('data-item'));
                 this.showContactTemplateModal(itemData);
+            });
+        });
+    }
+
+    setupContactCheckboxEventListeners() {
+        document.querySelectorAll('.contact-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const identifier = checkbox.getAttribute('data-identifier');
+
+                if (checkbox.checked) {
+                    // Add to localStorage with current timestamp
+                    this.setCompanyContacted(identifier, Date.now());
+                } else {
+                    // Remove from localStorage
+                    this.setCompanyContacted(identifier, null);
+                }
             });
         });
     }
@@ -457,6 +505,7 @@ class FreeJKApp {
 
         const displayUrl = item.url || '';
         const fullUrl = formatUrl(item.url);
+        const isContacted = this.isCompanyContacted(item.identifier);
 
         return `
             <div class="card">
@@ -500,6 +549,15 @@ class FreeJKApp {
                                 </a>
                             </div>
                         ` : ''}
+
+                        <div class="contact-status-section">
+                            <label class="contact-checkbox-label">
+                                <input type="checkbox" class="contact-checkbox"
+                                       data-identifier="${this.escapeHtml(item.identifier)}"
+                                       ${isContacted ? 'checked' : ''}>
+                                <span class="checkbox-text">Contacted</span>
+                            </label>
+                        </div>
 
                         ${this.campaign && this.campaign.contact_template ? `
                             <div class="contact-template-section">
@@ -576,6 +634,7 @@ Best regards,
 
 const DEMO_DATA = [
     {
+        campaign: "Free Jimmy Kimmel",
         company_name: "Community Resource Center",
         market: "Downtown",
         url: "example.com/resource-center",
@@ -583,9 +642,11 @@ const DEMO_DATA = [
         contact_phone: "(555) 123-4567",
         contact_url: "(555) 12url-4567",
         observed_on: "2024-01-15",
-        observed_source_url: "https://news.example.com/community-resource-story"
+        observed_source_url: "https://news.example.com/community-resource-story",
+        identifier: "free-jimmy-kimmel-downtown-community-resource-center"
     },
     {
+        campaign: "Free Jimmy Kimmel",
         company_name: "Legal Aid Society",
         market: "Midtown",
         url: "legalaid-example.org",
@@ -593,9 +654,11 @@ const DEMO_DATA = [
         contact_phone: "(555) 234-5678",
         contact_url: "(555) 23url-5678",
         observed_on: "2024-01-10",
-        observed_source_url: "https://blog.example.com/legal-aid-coverage"
+        observed_source_url: "https://blog.example.com/legal-aid-coverage",
+        identifier: "free-jimmy-kimmel-midtown-legal-aid-society"
     },
     {
+        campaign: "Free Jimmy Kimmel",
         company_name: "Food Bank Network",
         market: "Suburbs",
         url: "foodbank-network.org",
@@ -603,9 +666,11 @@ const DEMO_DATA = [
         contact_phone: "(555) 345-6789",
         contact_url: "(555) 34url-6789",
         observed_on: "2024-01-20",
-        observed_source_url: ""
+        observed_source_url: "",
+        identifier: "free-jimmy-kimmel-suburbs-food-bank-network"
     },
     {
+        campaign: "Free Jimmy Kimmel",
         company_name: "Housing Authority",
         market: "Downtown",
         url: "housing-authority.gov",
@@ -613,7 +678,8 @@ const DEMO_DATA = [
         contact_phone: "(555) 456-7890",
         contact_url: "(555) 45url-7890",
         observed_on: "2024-01-12",
-        observed_source_url: "https://local.example.com/housing-news"
+        observed_source_url: "https://local.example.com/housing-news",
+        identifier: "free-jimmy-kimmel-downtown-housing-authority"
     }
 ];
 
@@ -633,6 +699,7 @@ class FreeJKAppWithDemo extends FreeJKApp {
                 this.campaign = this.campaigns.find(c => c.name === this.campaignName);
 
                 this.data = DEMO_DATA;
+
                 this.processData();
                 this.populateMarketFilter();
                 this.filterData();
