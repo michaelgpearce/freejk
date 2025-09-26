@@ -212,11 +212,18 @@ main {
     gap: 0.5rem;
     font-size: 0.9rem;
     color: #555;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .contact-item a {
     color: #667eea;
     text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
 }
 
 .contact-item a:hover {
@@ -323,6 +330,13 @@ footer {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.25rem;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .contact-item a {
+        width: 100%;
+        max-width: 100%;
     }
 }
 
