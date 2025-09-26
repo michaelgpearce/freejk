@@ -54,20 +54,19 @@ class FreeJKApp {
 
     async loadData() {
         const jsonResponse = await this.fetchGoogleSpreadsheetJson('data');
-        this.data = this.parseGoogleSheetsJSON(jsonResponse, ['campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
+        this.data = this.parseGoogleSheetsJSON(jsonResponse, ['identifier', 'campaign', 'company_name', 'market', 'url', 'contact_email', 'contact_phone', 'contact_url', 'observed_on', 'observed_source_url']);
 
-        if (this.data.length === 0) {
-            throw new Error('No data found in the sheet');
-        }
+        // Generate identifiers for any items that don't have them
+        this.data.forEach(item => {
+            if (!item.identifier) {
+                item.identifier = this.generateDataIdentifier(item);
+            }
+        });
     }
 
     async loadCampaigns() {
         const jsonResponse = await this.fetchGoogleSpreadsheetJson('campaigns');
         this.campaigns = this.parseGoogleSheetsJSON(jsonResponse, ['name', 'description_html', 'contact_template']);
-
-        if (this.campaigns.length === 0) {
-            throw new Error('No data found in the campaigns sheet');
-        }
 
         this.processCampaigns();
 
@@ -174,38 +173,7 @@ class FreeJKApp {
                         if (cell && cell.v !== null && cell.v !== undefined) {
                             // Handle different column types
                             if (columnType === 'date') {
-                                console.log(`Date parsing - Row ${index}, Column ${col}:`, {
-                                    rawValue: cell.v,
-                                    formattedValue: cell.f,
-                                    valueType: typeof cell.v,
-                                    columnType: columnType
-                                });
-
-                                if (cell.f) {
-                                    // If there's a formatted value (f), use it for dates
-                                    value = cell.f;
-                                } else if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
-                                    // Handle Google Sheets Date() format like "Date(2024,0,15)"
-                                    const dateMatch = cell.v.match(/Date\((\d+),(\d+),(\d+)\)/);
-                                    if (dateMatch) {
-                                        const year = parseInt(dateMatch[1]);
-                                        const month = parseInt(dateMatch[2]); // Google Sheets months are 0-based
-                                        const day = parseInt(dateMatch[3]);
-                                        const date = new Date(year, month, day);
-                                        value = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-                                    } else {
-                                        value = String(cell.v);
-                                    }
-                                } else if (typeof cell.v === 'number') {
-                                    // Handle Excel/Google Sheets serial date numbers
-                                    // Google Sheets uses days since December 30, 1899
-                                    const date = new Date((cell.v - 25569) * 86400 * 1000);
-                                    value = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-                                } else {
-                                    value = String(cell.v);
-                                }
-
-                                console.log(`Date parsing result:`, value);
+                                value = this.parseDateValue(cell);
                             } else {
                                 // For non-date columns, just convert to string
                                 value = String(cell.v);
@@ -217,12 +185,13 @@ class FreeJKApp {
                         return obj;
                     }, {});
 
-                    // Only add rows that have content in the first column
-                    if (item[columnNames[0]]) {
-                        data.push(item);
-                    }
+                    data.push(item);
                 }
             });
+
+            if (data.length === 0) {
+                throw new Error('No data found in the sheet');
+            }
 
             return data;
 
@@ -257,6 +226,36 @@ class FreeJKApp {
         }
     }
 
+    parseDateValue(cell) {
+        let value = '';
+
+        if (cell.f) {
+            // If there's a formatted value (f), use it for dates
+            value = cell.f;
+        } else if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
+            // Handle Google Sheets Date() format like "Date(2024,0,15)"
+            const dateMatch = cell.v.match(/Date\((\d+),(\d+),(\d+)\)/);
+            if (dateMatch) {
+                const year = parseInt(dateMatch[1]);
+                const month = parseInt(dateMatch[2]); // Google Sheets months are 0-based
+                const day = parseInt(dateMatch[3]);
+                const date = new Date(year, month, day);
+                value = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+            } else {
+                value = String(cell.v);
+            }
+        } else if (typeof cell.v === 'number') {
+            // Handle Excel/Google Sheets serial date numbers
+            // Google Sheets uses days since December 30, 1899
+            const date = new Date((cell.v - 25569) * 86400 * 1000);
+            value = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        } else {
+            value = String(cell.v);
+        }
+
+        return value;
+    }
+
     cleanValue(value) {
         if (!value) return '';
 
@@ -270,6 +269,22 @@ class FreeJKApp {
             .replace(/\r/g, '\n');          // Convert Mac line endings
 
         return cleaned;
+    }
+
+    generateDataIdentifier(dataElement) {
+        // Create identifier from campaign, company_name, and market
+        const parts = [
+            dataElement.campaign || '',
+            dataElement.market || '',
+            dataElement.company_name || ''
+        ];
+
+        // Join parts, convert to lowercase, and replace sequential non-alphanumeric chars with dash
+        return parts
+            .join(' ')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')  // Replace one or more non-alphanumeric chars with single dash
+            .replace(/^-+|-+$/g, '');     // Remove leading/trailing dashes
     }
 
     processCampaigns() {
